@@ -48,8 +48,61 @@ const navigationItems = [
   },
 ];
 
+import { signOut, getUser, getProfile } from "@/lib/services/auth";
+import { useRouter } from "next/navigation";
+
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userName, setUserName] = React.useState("Dr. Carlos Sanabria");
+  const [userRole, setUserRole] = React.useState("Fisioterapeuta Col. 4821");
+  const [userInitials, setUserInitials] = React.useState("CS");
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+
+  React.useEffect(() => {
+    async function loadUserData() {
+      try {
+        const user = await getUser();
+        if (user) {
+          const profile = await getProfile();
+          const nombre = profile?.nombre_completo || user.user_metadata?.nombre_completo || user.email?.split("@")[0] || "Profesional";
+          setUserName(nombre);
+          
+          if (profile?.numero_colegiado) {
+            setUserRole(`${profile.especialidad || "Colegiado"} ${profile.numero_colegiado}`);
+          } else if (profile?.especialidad) {
+            setUserRole(profile.especialidad);
+          } else {
+            setUserRole(user.email || "Profesional Sanitario");
+          }
+
+          const initials = nombre
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part: string) => part[0]?.toUpperCase() || "")
+            .join("") || "PR";
+          setUserInitials(initials);
+        }
+      } catch {
+        // Fallback por defecto en modo demo/desconectado
+      }
+    }
+    loadUserData();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await signOut();
+      router.push("/login");
+      router.refresh();
+    } catch {
+      router.push("/login");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <aside
@@ -149,24 +202,26 @@ export function Sidebar({ className }: { className?: string }) {
 
       {/* User profile footer */}
       <div className="flex items-center justify-between border-t border-slate-100 p-4 dark:border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 font-bold text-slate-700 text-xs dark:bg-slate-800 dark:text-slate-200">
-            CS
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 font-bold text-slate-700 text-xs dark:bg-slate-800 dark:text-slate-200">
+            {userInitials}
           </div>
-          <div className="overflow-hidden">
+          <div className="overflow-hidden min-w-0">
             <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
-              Dr. Carlos Sanabria
+              {userName}
             </p>
             <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
-              Fisioterapeuta Col. 4821
+              {userRole}
             </p>
           </div>
         </div>
         <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
           title="Cerrar sesión"
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 transition-colors"
+          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-red-600 dark:hover:bg-slate-800 transition-colors shrink-0"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className={cn("h-4 w-4", isLoggingOut && "animate-spin")} />
         </button>
       </div>
     </aside>
