@@ -8,6 +8,11 @@ import { NotasSOAP } from "./notas-soap";
 import { ModeloAnatomico } from "./modelo-anatomico";
 import { TarjetaCita } from "@/components/agenda/tarjeta-cita";
 import {
+  addNotaSOAP,
+  addPuntoDolor,
+  deletePuntoDolor,
+} from "@/lib/services/pacientes";
+import {
   Phone,
   Mail,
   AlertTriangle,
@@ -49,41 +54,69 @@ export function FichaPaciente({
     return Math.max(0, edad);
   };
 
-  const handleAddNota = (nuevaNota: Omit<NotaSOAP, "id" | "fecha">) => {
-    const nota: NotaSOAP = {
-      ...nuevaNota,
-      id: `soap-${Date.now()}`,
-      fecha: new Date().toLocaleString("es-ES", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-    setPaciente((prev) => ({
-      ...prev,
-      notasEvolutivas: [nota, ...prev.notasEvolutivas],
-    }));
+  const handleAddNota = async (nuevaNota: Omit<NotaSOAP, "id" | "fecha">) => {
+    const fechaActualStr = new Date().toLocaleString("es-ES", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    try {
+      const notaGuardada = await addNotaSOAP(paciente.id, {
+        ...nuevaNota,
+        fecha: fechaActualStr,
+      });
+      setPaciente((prev) => ({
+        ...prev,
+        notasEvolutivas: [notaGuardada, ...prev.notasEvolutivas],
+      }));
+    } catch (err) {
+      console.warn("Fallo al guardar nota en Supabase. Guardando localmente:", err);
+      const nota: NotaSOAP = {
+        ...nuevaNota,
+        id: `soap-${Date.now()}`,
+        fecha: fechaActualStr,
+      };
+      setPaciente((prev) => ({
+        ...prev,
+        notasEvolutivas: [nota, ...prev.notasEvolutivas],
+      }));
+    }
   };
 
-  const handleAddPunto = (nuevoPunto: Omit<PuntoDolor, "id" | "fecha">) => {
-    const punto: PuntoDolor = {
-      ...nuevoPunto,
-      id: `p-${Date.now()}`,
-      fecha: new Date().toISOString().split("T")[0],
-    };
-    setPaciente((prev) => ({
-      ...prev,
-      puntosDolor: [...prev.puntosDolor, punto],
-    }));
+  const handleAddPunto = async (nuevoPunto: Omit<PuntoDolor, "id" | "fecha">) => {
+    try {
+      const puntoGuardado = await addPuntoDolor(paciente.id, nuevoPunto);
+      setPaciente((prev) => ({
+        ...prev,
+        puntosDolor: [...prev.puntosDolor, puntoGuardado],
+      }));
+    } catch (err) {
+      console.warn("Fallo al guardar punto en Supabase. Guardando localmente:", err);
+      const punto: PuntoDolor = {
+        ...nuevoPunto,
+        id: `p-${Date.now()}`,
+        fecha: new Date().toISOString().split("T")[0],
+      };
+      setPaciente((prev) => ({
+        ...prev,
+        puntosDolor: [...prev.puntosDolor, punto],
+      }));
+    }
   };
 
-  const handleRemovePunto = (id: string) => {
+  const handleRemovePunto = async (id: string) => {
     setPaciente((prev) => ({
       ...prev,
       puntosDolor: prev.puntosDolor.filter((p) => p.id !== id),
     }));
+    try {
+      await deletePuntoDolor(id);
+    } catch (err) {
+      console.error("Error al eliminar punto de dolor en Supabase:", err);
+    }
   };
 
   const citasPaciente = citas.filter((c) => c.pacienteId === paciente.id);

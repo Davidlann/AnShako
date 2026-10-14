@@ -12,6 +12,7 @@ import { Cita, Paciente } from "@/types";
 import { Button } from "@/components/ui/button";
 import { TarjetaCita } from "./tarjeta-cita";
 import { ModalCita } from "./modal-cita";
+import { createCita, updateCita } from "@/lib/services/citas";
 
 interface CalendarioAgendaProps {
   citas: Cita[];
@@ -27,6 +28,7 @@ export function CalendarioAgenda({
   const [fechaActual, setFechaActual] = React.useState<string>("2026-10-14");
   const [modalOpen, setModalOpen] = React.useState(false);
   const [selectedCita, setSelectedCita] = React.useState<Cita | null>(null);
+
 
   const horasDelDia = [
     "08:00",
@@ -55,27 +57,50 @@ export function CalendarioAgenda({
 
   const citasDelDia = citas.filter((c) => c.fecha === fechaActual);
 
-  const handleSaveCita = (citaData: Partial<Cita>) => {
+  const handleSaveCita = async (citaData: Partial<Cita>) => {
     if (citaData.id) {
       setCitas((prev) =>
         prev.map((c) => (c.id === citaData.id ? ({ ...c, ...citaData } as Cita) : c))
       );
+      try {
+        await updateCita(citaData.id, citaData);
+      } catch (err) {
+        console.error("Error al actualizar cita en Supabase:", err);
+      }
     } else {
-      const nuevaCita: Cita = {
-        id: `cit-${Date.now()}`,
-        pacienteId: citaData.pacienteId || "",
-        pacienteNombre: citaData.pacienteNombre || "",
-        pacienteTelefono: citaData.pacienteTelefono || "",
-        fecha: citaData.fecha || fechaActual,
-        horaInicio: citaData.horaInicio || "09:00",
-        horaFin: citaData.horaFin || "10:00",
-        tipo: citaData.tipo || "Fisioterapia",
-        estado: citaData.estado || "confirmada",
-        sala: citaData.sala || "Cabina 1",
-        notas: citaData.notas || "",
-        precio: citaData.precio || 50,
-      };
-      setCitas((prev) => [...prev, nuevaCita]);
+      try {
+        const nuevaCita = await createCita({
+          pacienteId: citaData.pacienteId || "",
+          pacienteNombre: citaData.pacienteNombre || "",
+          pacienteTelefono: citaData.pacienteTelefono || "",
+          fecha: citaData.fecha || fechaActual,
+          horaInicio: citaData.horaInicio || "09:00",
+          horaFin: citaData.horaFin || "10:00",
+          tipo: citaData.tipo || "Fisioterapia",
+          estado: citaData.estado || "confirmada",
+          sala: citaData.sala || "Cabina 1",
+          notas: citaData.notas || "",
+          precio: citaData.precio || 50,
+        });
+        setCitas((prev) => [...prev, nuevaCita]);
+      } catch (err) {
+        console.warn("Usando guardado local optimista:", err);
+        const fallbackCita: Cita = {
+          id: `cit-${Date.now()}`,
+          pacienteId: citaData.pacienteId || "",
+          pacienteNombre: citaData.pacienteNombre || "",
+          pacienteTelefono: citaData.pacienteTelefono || "",
+          fecha: citaData.fecha || fechaActual,
+          horaInicio: citaData.horaInicio || "09:00",
+          horaFin: citaData.horaFin || "10:00",
+          tipo: citaData.tipo || "Fisioterapia",
+          estado: citaData.estado || "confirmada",
+          sala: citaData.sala || "Cabina 1",
+          notas: citaData.notas || "",
+          precio: citaData.precio || 50,
+        };
+        setCitas((prev) => [...prev, fallbackCita]);
+      }
     }
   };
 

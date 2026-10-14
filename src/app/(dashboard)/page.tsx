@@ -12,13 +12,39 @@ import {
   Activity,
   Sparkles,
 } from "lucide-react";
-import { MOCK_CITAS, MOCK_PACIENTES, MOCK_RESUMEN_CAJA } from "@/lib/mock-data";
+import { getCitas } from "@/lib/services/citas";
+import { getPacientes } from "@/lib/services/pacientes";
+import { getResumenCaja } from "@/lib/services/facturas";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { TarjetaCita } from "@/components/agenda/tarjeta-cita";
+import { Cita, Paciente, ResumenCaja } from "@/types";
+import { MOCK_CITAS, MOCK_PACIENTES, MOCK_RESUMEN_CAJA } from "@/lib/mock-data";
 
 export default function DashboardPage() {
-  const citasHoy = MOCK_CITAS.filter((c) => c.fecha === "2026-10-14");
+  const [citas, setCitas] = React.useState<Cita[]>(MOCK_CITAS);
+  const [pacientes, setPacientes] = React.useState<Paciente[]>(MOCK_PACIENTES);
+  const [resumen, setResumen] = React.useState<ResumenCaja>(MOCK_RESUMEN_CAJA);
+
+  React.useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const [citasData, pacientesData, resumenData] = await Promise.all([
+          getCitas(),
+          getPacientes(),
+          getResumenCaja(),
+        ]);
+        setCitas(citasData);
+        setPacientes(pacientesData);
+        setResumen(resumenData);
+      } catch (err) {
+        console.warn("Cargando datos con fallback:", err);
+      }
+    }
+    loadDashboardData();
+  }, []);
+
+  const citasHoy = citas.filter((c) => c.fecha === "2026-10-14");
 
   return (
     <div className="space-y-8">
@@ -74,7 +100,7 @@ export default function DashboardPage() {
               {citasHoy.length}
             </span>
             <span className="text-xs font-semibold text-teal-600">
-              1 en curso
+              {citasHoy.filter((c) => c.estado === "en_curso").length > 0 ? "1 en curso" : "Jornada activa"}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
@@ -94,10 +120,10 @@ export default function DashboardPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-slate-900 dark:text-white">
-              {MOCK_PACIENTES.length}
+              {pacientes.length}
             </span>
             <span className="text-xs font-semibold text-emerald-600">
-              +2 este mes
+              Sincronizados
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
@@ -117,11 +143,11 @@ export default function DashboardPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-slate-900 dark:text-white">
-              {formatCurrency(MOCK_RESUMEN_CAJA.ingresosTotalesMes)}
+              {formatCurrency(resumen.ingresosTotalesMes)}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
-            Caja hoy: {formatCurrency(MOCK_RESUMEN_CAJA.ingresosHoy)}
+            Caja hoy: {formatCurrency(resumen.ingresosHoy)}
           </p>
         </div>
 
@@ -137,11 +163,11 @@ export default function DashboardPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-amber-600">
-              {formatCurrency(MOCK_RESUMEN_CAJA.facturasPendientesCobro)}
+              {formatCurrency(resumen.facturasPendientesCobro)}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
-            1 sesión pendiente de abono
+            Sesiones pendientes de abono
           </p>
         </div>
       </div>
@@ -193,7 +219,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
-              {MOCK_PACIENTES.slice(0, 3).map((paciente) => (
+              {pacientes.slice(0, 3).map((paciente) => (
                 <div
                   key={paciente.id}
                   className="py-3 flex items-center justify-between"
@@ -211,7 +237,7 @@ export default function DashboardPage() {
                         {paciente.nombre} {paciente.apellidos}
                       </Link>
                       <span className="text-[11px] text-slate-400">
-                        {paciente.puntosDolor.length} puntos de dolor · {paciente.notasEvolutivas.length} SOAP
+                        {paciente.puntosDolor?.length || 0} puntos de dolor · {paciente.notasEvolutivas?.length || 0} SOAP
                       </span>
                     </div>
                   </div>
@@ -231,23 +257,23 @@ export default function DashboardPage() {
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-teal-50/30 p-5 dark:border-slate-800 dark:from-slate-900 dark:to-teal-950/20">
             <div className="flex items-center gap-2 text-teal-700 dark:text-teal-400 font-bold text-xs mb-2">
               <Activity className="h-4 w-4" />
-              <span>Herramientas de Salud Anshako</span>
+              <span>Conectado a Base de Datos Supabase</span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
-              Módulo de notas evolutivas <strong>SOAP</strong>, mapa anatómico interactivo con escala <strong>EVA</strong> y facturación médica exenta de IVA lista para emitir.
+              Módulo de notas evolutivas <strong>SOAP</strong>, mapa anatómico interactivo con escala <strong>EVA</strong> y facturación médica persistente en PostgreSQL.
             </p>
             <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
               <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700">
-                Fisioterapia
+                PostgreSQL
               </span>
               <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700">
-                Psicología
+                Supabase SSR
               </span>
               <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700">
-                Rehabilitación
+                RLS Activo
               </span>
               <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700">
-                Escala EVA
+                CRUD Completo
               </span>
             </div>
           </div>

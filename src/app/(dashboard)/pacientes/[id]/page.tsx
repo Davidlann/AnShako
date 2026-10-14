@@ -1,12 +1,19 @@
 import * as React from "react";
 import { notFound } from "next/navigation";
 import { FichaPaciente } from "@/components/pacientes/ficha-paciente";
-import { MOCK_PACIENTES, MOCK_CITAS, MOCK_FACTURAS } from "@/lib/mock-data";
+import { getPacienteById, getPacientes } from "@/lib/services/pacientes";
+import { getCitas } from "@/lib/services/citas";
+import { getFacturas } from "@/lib/services/facturas";
 
-export function generateStaticParams() {
-  return MOCK_PACIENTES.map((p) => ({
-    id: p.id,
-  }));
+export async function generateStaticParams() {
+  try {
+    const pacientes = await getPacientes();
+    return pacientes.map((p) => ({
+      id: p.id,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 interface PageProps {
@@ -15,7 +22,12 @@ interface PageProps {
 
 export default async function PacienteDetallePage({ params }: PageProps) {
   const { id } = await params;
-  const paciente = MOCK_PACIENTES.find((p) => p.id === id);
+
+  const [paciente, citas, facturas] = await Promise.all([
+    getPacienteById(id),
+    getCitas(),
+    getFacturas(),
+  ]);
 
   if (!paciente) {
     notFound();
@@ -24,8 +36,8 @@ export default async function PacienteDetallePage({ params }: PageProps) {
   return (
     <FichaPaciente
       paciente={paciente}
-      citas={MOCK_CITAS}
-      facturas={MOCK_FACTURAS}
+      citas={citas}
+      facturas={facturas}
     />
   );
 }

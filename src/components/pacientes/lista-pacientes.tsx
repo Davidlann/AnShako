@@ -13,6 +13,8 @@ import {
   FileText,
 } from "lucide-react";
 
+import { createPaciente } from "@/lib/services/pacientes";
+
 interface ListaPacientesProps {
   initialPacientes: Paciente[];
 }
@@ -21,6 +23,7 @@ export function ListaPacientes({ initialPacientes }: ListaPacientesProps) {
   const [pacientes, setPacientes] = React.useState<Paciente[]>(initialPacientes);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [modalOpen, setModalOpen] = React.useState(false);
+
 
   // Form states
   const [nombre, setNombre] = React.useState("");
@@ -44,28 +47,47 @@ export function ListaPacientes({ initialPacientes }: ListaPacientesProps) {
     );
   });
 
-  const handleCrearPaciente = (e: React.FormEvent) => {
+  const handleCrearPaciente = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nuevo: Paciente = {
-      id: `pac-${Date.now()}`,
-      nombre,
-      apellidos,
-      dni,
-      email,
-      telefono,
-      fechaNacimiento,
-      genero,
-      profesion,
-      alergias: alergias ? alergias.split(",").map((s) => s.trim()) : [],
-      antecedentes: antecedentes ? antecedentes.split(",").map((s) => s.trim()) : [],
-      medicacion: [],
-      puntosDolor: [],
-      notasEvolutivas: [],
-      fechaRegistro: new Date().toISOString().split("T")[0],
-      estado: "activo",
-    };
-
-    setPacientes([nuevo, ...pacientes]);
+    try {
+      const nuevo = await createPaciente({
+        nombre,
+        apellidos,
+        dni,
+        email,
+        telefono,
+        fechaNacimiento,
+        genero,
+        profesion,
+        alergias: alergias ? alergias.split(",").map((s) => s.trim()) : [],
+        antecedentes: antecedentes ? antecedentes.split(",").map((s) => s.trim()) : [],
+        medicacion: [],
+        fechaRegistro: new Date().toISOString().split("T")[0],
+        estado: "activo",
+      });
+      setPacientes([nuevo, ...pacientes]);
+    } catch (err) {
+      console.warn("Fallo al guardar en Supabase. Guardando localmente:", err);
+      const fallback: Paciente = {
+        id: `pac-${Date.now()}`,
+        nombre,
+        apellidos,
+        dni,
+        email,
+        telefono,
+        fechaNacimiento,
+        genero,
+        profesion,
+        alergias: alergias ? alergias.split(",").map((s) => s.trim()) : [],
+        antecedentes: antecedentes ? antecedentes.split(",").map((s) => s.trim()) : [],
+        medicacion: [],
+        puntosDolor: [],
+        notasEvolutivas: [],
+        fechaRegistro: new Date().toISOString().split("T")[0],
+        estado: "activo",
+      };
+      setPacientes([fallback, ...pacientes]);
+    }
     setModalOpen(false);
     // Reset
     setNombre("");

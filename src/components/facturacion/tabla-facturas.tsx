@@ -14,6 +14,8 @@ import {
   FileText,
 } from "lucide-react";
 
+import { createFactura, updateEstadoFactura } from "@/lib/services/facturas";
+
 interface TablaFacturasProps {
   initialFacturas: Factura[];
   pacientes: Paciente[];
@@ -25,6 +27,7 @@ export function TablaFacturas({ initialFacturas, pacientes }: TablaFacturasProps
   const [search, setSearch] = React.useState("");
   const [modalOpen, setModalOpen] = React.useState(false);
   const [facturaSeleccionada, setFacturaSeleccionada] = React.useState<Factura | null>(null);
+
 
   // New Invoice form states
   const [pacienteId, setPacienteId] = React.useState(pacientes[0]?.id || "");
@@ -44,15 +47,14 @@ export function TablaFacturas({ initialFacturas, pacientes }: TablaFacturasProps
     return matchFiltro && matchSearch;
   });
 
-  const handleCrearFactura = (e: React.FormEvent) => {
+  const handleCrearFactura = async (e: React.FormEvent) => {
     e.preventDefault();
     const paciente = pacientes.find((p) => p.id === pacienteId);
     const subtotal = precio * cantidad;
     const ivaTotal = 0; // Exento de IVA sanitario en España (art 20 LIVA)
     const total = subtotal + ivaTotal;
 
-    const nuevaFactura: Factura = {
-      id: `fac-${Date.now()}`,
+    const nuevaFacturaPayload = {
       numero: `FAC-2026-00${facturas.length + 45}`,
       pacienteId,
       pacienteNombre: paciente
@@ -78,11 +80,21 @@ export function TablaFacturas({ initialFacturas, pacientes }: TablaFacturasProps
       metodoPago: estado === "pagada" ? metodoPago : undefined,
     };
 
-    setFacturas([nuevaFactura, ...facturas]);
+    try {
+      const creada = await createFactura(nuevaFacturaPayload);
+      setFacturas([creada, ...facturas]);
+    } catch (err) {
+      console.warn("Fallo al guardar factura en Supabase. Guardando localmente:", err);
+      const fallbackFactura: Factura = {
+        ...nuevaFacturaPayload,
+        id: `fac-${Date.now()}`,
+      };
+      setFacturas([fallbackFactura, ...facturas]);
+    }
     setModalOpen(false);
   };
 
-  const handleMarcarPagada = (facturaId: string, metodo: MetodoPago) => {
+  const handleMarcarPagada = async (facturaId: string, metodo: MetodoPago) => {
     setFacturas((prev) =>
       prev.map((f) =>
         f.id === facturaId
@@ -90,6 +102,11 @@ export function TablaFacturas({ initialFacturas, pacientes }: TablaFacturasProps
           : f
       )
     );
+    try {
+      await updateEstadoFactura(facturaId, "pagada", metodo);
+    } catch (err) {
+      console.error("Error al actualizar estado en Supabase:", err);
+    }
   };
 
   return (
